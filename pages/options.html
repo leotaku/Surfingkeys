@@ -8,18 +8,129 @@
         <script src="../libs/ace/ace.js" type="text/javascript" charset="utf-8"></script>
     </head>
     <body>
-        <script id="sample" type="text/template">// an example to create a new mapping `ctrl-y`
-mapkey('<Ctrl-y>', 'Show me the money', function() {
-    Front.showPopup('a well-known phrase uttered by characters in the 1996 film Jerry Maguire (Escape to close).');
+      <script id="sample" type="text/template">/// My custom settings
+
+// Home-row only hints
+Hints.characters = 'asdghjkl';
+
+// Settings
+
+settings.focusFirstCandidate = true;
+settings.digitForRepeat = true;
+settings.tabsThreshold = 0;
+settings.omnibarSuggestionTimeout = 100;
+settings.scrollStepSize = 150;
+settings.hintAlign = "left";
+settings.scrollFriction = 0;
+
+// Keys
+
+// Easy tab management
+mapkey('q', 'Select previous tab', function() {
+    RUNTIME('previousTab');
 });
 
-// an example to replace `T` with `gt`, click `Default mappings` to see how `T` works.
-map('gt', 'T');
+mapkey('w', 'Select next tab', function() {
+    RUNTIME('nextTab');
+});
 
-// an example to remove mapkey `Ctrl-i`
-unmap('<Ctrl-i>');
+mapkey('Q', 'Move current tab to left', function() {
+    RUNTIME('moveTab', {
+        step: -1
+    });
+});
 
-// set theme
+mapkey('W', 'Move current tab to right', function() {
+    RUNTIME('moveTab', {
+        step: 1
+    });
+});
+
+mapkey('a', 'Focus first tab', function() {
+    RUNTIME('firstTab');
+});
+
+mapkey('s', 'Focus last tab', function() {
+    RUNTIME('lastTab');
+});
+
+mapkey('A', 'Move current tab to far left', function() {
+    RUNTIME('moveTab', {
+        step: -100
+    });
+});
+
+mapkey('S', 'Move current tab to far right', function() {
+    RUNTIME('moveTab', {
+        step: 100
+    });
+});
+
+mapkey('x', 'Close current tab', function() {
+    RUNTIME("closeTab");
+});
+
+mapkey('u', 'Restore closed tab', function() {
+    RUNTIME("openLast");
+});
+
+mapkey('l', 'Choose a tab', function() {
+    Front.chooseTab();
+});
+
+mapkey('p', 'pin/unpin current tab', function() {
+    RUNTIME("togglePinTab");
+});
+mapkey('m', 'mute/unmute current tab', function() {
+    RUNTIME("muteTab");
+});
+
+// Opening links
+
+mapkey('t', 'Open a URL', function() {
+    RUNTIME("newTab");
+});
+
+mapkey('b', 'Open a link in new window', function() {
+    Hints.create("a:visible", function(link, event) {
+        window.open(link.getAttribute('href'));
+    })
+});
+
+mapkey('c', 'Go back in history', function() {
+    history.go(-1);
+}, {repeatIgnore: true});
+
+mapkey('v', 'Go forward in history', function() {
+    history.go(1);
+}, {repeatIgnore: true});
+
+
+mapkey('b', 'Open a link in new tab', function() {
+    Hints.create("a:visible", Hints.dispatchMouseClick, {tabbed: true});
+});
+
+// Zooming
+
+mapkey('=', 'Reset zoom level', function() {
+    RUNTIME('setZoom', {
+        zoomFactor: 0
+    });
+});
+
+mapkey('+', 'Zoom in', function() {
+    RUNTIME('setZoom', {
+        zoomFactor: 0.05
+    });
+});
+
+mapkey('-', 'Zoom out', function() {
+    RUNTIME('setZoom', {
+        zoomFactor: -0.05
+    });
+});
+
+// Theme settings
 settings.theme = `
 .sk_theme {
     font-family: Input Sans Condensed, Charcoal, sans-serif;
@@ -57,7 +168,7 @@ settings.theme = `
 #sk_status, #sk_find {
     font-size: 20pt;
 }`;
-// click `Save` button to make above settings to take effect.</script>
+      </script>
         <script id="templateProxyPair" type="text/template">
             <div class="proxyPair">
                 <div class="deleteProxyPair">🗑️</div>
