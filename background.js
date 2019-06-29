@@ -780,6 +780,12 @@ var ChromeService = (function() {
     self.previousTab = function(message, sender, sendResponse) {
         _nextTab(sender.tab, -message.repeats);
     };
+    self.firstTab = function(message, sender, sendResponse) {
+        _nextTab(sender.tab, -500);
+    };
+    self.lastTab = function(message, sender, sendResponse) {
+        _nextTab(sender.tab, 500);
+    };
     function _roundRepeatTabs(tab, repeats, operation) {
         chrome.tabs.query({
             windowId: tab.windowId
@@ -800,6 +806,9 @@ var ChromeService = (function() {
                 });
             });
         });
+    };
+    self.newTab = function(message, sender, sendResponse) {
+        chrome.tabs.create({});
     };
     self.closeTab = function(message, sender, sendResponse) {
         _roundRepeatTabs(sender.tab, message.repeats, function(tabIds) {
