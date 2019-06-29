@@ -188,7 +188,12 @@ var Mode = (function() {
             key = event.sk_keyName;
         this.isTrustedEvent = event.isTrusted;
 
-        if (Mode.isSpecialKeyOf("<Esc>", key) && self.finish(this)) {
+        var isEscKey = Mode.isSpecialKeyOf("<Esc>", key);
+        if (isEscKey) {
+            key = KeyboardUtils.encodeKeystroke("<Esc>");
+        }
+
+        if (isEscKey && self.finish(this)) {
             event.sk_stopPropagation = true;
             event.sk_suppressed = true;
         } else if (this.pendingMap) {
@@ -328,6 +333,9 @@ var Normal = (function() {
                     Normal.passFocus(true);
                     event.sk_stopPropagation = (runtime.conf.editableBodyCare
                         && realTarget === document.body && event.key === "i");
+                    if (event.sk_stopPropagation) {
+                        realTarget.focus();
+                    }
                     // keep cursor where it is
                     Insert.enter(realTarget, true);
                 }
@@ -379,7 +387,8 @@ var Normal = (function() {
 
         var realTarget = getRealEdit(event);
         if (isEditable(realTarget) || realTarget.matches("div.CodeMirror-scroll")) {
-            Insert.enter(realTarget);
+            // keep cursor where it is
+            Insert.enter(realTarget, true);
         } else {
             Insert.exit();
         }
@@ -513,17 +522,39 @@ var Normal = (function() {
         }
     }
 
+    function scrollableMousedownHandler(e) {
+        var n = e.currentTarget;
+        if (!n.contains(e.target)) return;
+        var index = scrollNodes.lastIndexOf(e.target);
+        if (index === -1) {
+            for (var i = scrollNodes.length - 1; i >= 0; i--) {
+                if (scrollNodes[i].contains(e.target)) {
+                    index = i;break;
+                }
+            }
+            if (index === -1) console.warn('cannot find scrollable', e.target);
+        }
+        scrollIndex = index;
+    };
+
     function getScrollableElements() {
         var nodes = listElements(document.body, NodeFilter.SHOW_ELEMENT, function(n) {
             return (hasScroll(n, 'y', 16) && n.scrollHeight > 200 ) || (hasScroll(n, 'x', 16) && n.scrollWidth > 200);
         });
         nodes.sort(function(a, b) {
+            if (b.contains(a)) return 1;
+            else if (a.contains(b)) return -1;
             return b.scrollHeight * b.scrollWidth - a.scrollHeight * a.scrollWidth;
         });
         if (document.scrollingElement.scrollHeight > window.innerHeight
             || document.scrollingElement.scrollWidth > window.innerWidth) {
             nodes.unshift(document.scrollingElement);
         }
+        nodes.forEach(function (n) {
+            n.removeEventListener('mousedown', scrollableMousedownHandler);
+            n.addEventListener('mousedown', scrollableMousedownHandler);
+            n.dataset.hint_scrollable = true;
+        });
         return nodes;
     }
 
@@ -618,6 +649,12 @@ var Normal = (function() {
         }
     };
 
+    self.refreshScrollableElements = function () {
+        scrollNodes = null;
+        initScrollIndex();
+        return scrollNodes;
+    };
+
     self.getScrollableElements = function() {
         initScrollIndex();
         return scrollNodes;
@@ -681,58 +718,24 @@ var Normal = (function() {
         }
     };
 
-    var localMarks = {};
     self.addVIMark = function(mark, url) {
-        if (/^[a-z]$/.test(mark)) {
-            // local mark
-            localMarks[mark] = {
-                scrollLeft: document.scrollingElement.scrollLeft,
-                scrollTop: document.scrollingElement.scrollTop
-            };
-        } else {
-            // global mark
-            url = url || window.location.href;
-            var mo = {};
-            mo[mark] = {
-                url: url,
-                scrollLeft: document.scrollingElement.scrollLeft,
-                scrollTop: document.scrollingElement.scrollTop
-            };
-            RUNTIME('addVIMark', {mark: mo});
-            Front.showBanner("Mark '{0}' added for: {1}.".format(mark, url));
-        }
+        url = url || window.location.href;
+        var mo = {};
+        mo[mark] = {
+            url: url,
+            scrollLeft: document.scrollingElement.scrollLeft,
+            scrollTop: document.scrollingElement.scrollTop
+        };
+        RUNTIME('addVIMark', {mark: mo});
+        Front.showBanner("Mark '{0}' added for: {1}.".format(mark, url));
     };
 
-    self.jumpVIMark = function(mark, newTab) {
-        if (localMarks.hasOwnProperty(mark)) {
-            var markInfo = localMarks[mark];
-            document.scrollingElement.scrollLeft = markInfo.scrollLeft;
-            document.scrollingElement.scrollTop = markInfo.scrollTop;
-        } else {
-            runtime.command({
-                action: 'getSettings',
-                key: 'marks'
-            }, function(response) {
-                var marks = response.settings.marks;
-                if (marks.hasOwnProperty(mark)) {
-                    var markInfo = marks[mark];
-                    if (typeof(markInfo) === "string") {
-                        markInfo = {
-                            url: markInfo,
-                            scrollLeft: 0,
-                            scrollTop: 0
-                        };
-                    }
-                    markInfo.tab = {
-                        tabbed: newTab,
-                        active: true
-                    };
-                    RUNTIME("openLink", markInfo);
-                } else {
-                    Front.showBanner("No mark '{0}' defined.".format(mark));
-                }
-            });
-        }
+    self.jumpVIMark = function(mark) {
+        runtime.command({
+            action: 'jumpVIMark',
+            mark: mark
+        }, function(response) {
+        });
     };
 
     self.insertJS = function(code, onload) {
@@ -980,11 +983,20 @@ var Normal = (function() {
     });
 
     self.mappings.add("f", {
-        annotation: "Open a link, press SHIFT to flip hints if they are overlapped.",
+        annotation: "Open a link, press SHIFT to flip overlapped hints, hold SPACE to hide hints",
         feature_group: 1,
         repeatIgnore: true,
         code: function() {
             Hints.create("", Hints.dispatchMouseClick);
+        }
+    });
+
+    self.mappings.add(";fs", {
+        annotation: "Display hints to focus scrollable elements",
+        feature_group: 1,
+        repeatIgnore: true,
+        code: function() {
+            Hints.create(Normal.refreshScrollableElements(), Hints.dispatchMouseClick);
         }
     });
 

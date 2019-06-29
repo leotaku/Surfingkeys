@@ -60,20 +60,33 @@ var Front = (function() {
 
     var _actions = {};
 
-    self.registerAction = function(action, cb) {
-        _actions[action] = cb;
+    self.performInlineQueryOnSelection = function(word) {
+        var b = document.getSelection().getRangeAt(0).getClientRects()[0];
+        Front.performInlineQuery(word, function(queryResult) {
+            if (queryResult) {
+                Front.showBubble({
+                    top: b.top,
+                    left: b.left,
+                    height: b.height,
+                    width: b.width
+                }, queryResult, false);
+            }
+        });
+    };
+    self.querySelectedWord = function() {
+        var selection = document.getSelection();
+        var word = selection.toString().trim();
+        if (word && word.length && selection.type === "Range") {
+            self.performInlineQueryOnSelection(word);
+        }
     };
 
     _actions["updateInlineQuery"] = function (message) {
-        var b = document.getSelection().getRangeAt(0).getClientRects()[0];
-        Front.performInlineQuery(message.word, function(queryResult) {
-            Front.showBubble({
-                top: b.top,
-                left: b.left,
-                height: b.height,
-                width: b.width
-            }, queryResult, false);
-        });
+        if (message.word) {
+            self.performInlineQueryOnSelection(message.word);
+        } else {
+            self.querySelectedWord();
+        }
     };
 
     _actions["getSearchSuggestions"] = function (message) {
@@ -90,9 +103,10 @@ var Front = (function() {
             cmdline: cmd
         });
     };
-    self.addCMap = function (new_keystroke, old_keystroke) {
+    self.addMapkey = function (mode, new_keystroke, old_keystroke) {
         frontendCommand({
-            action: 'addCMap',
+            action: 'addMapkey',
+            mode: mode,
             new_keystroke: new_keystroke,
             old_keystroke: old_keystroke
         });
@@ -112,7 +126,7 @@ var Front = (function() {
         });
     };
 
-    var frameElement = createElement('<div id=sk_frame>');
+    var frameElement = createElement('<div id="sk_frame" />');
     self.highlightElement = function (sn) {
         document.body.append(frameElement);
         var rect = sn.rect;
@@ -347,6 +361,7 @@ var Front = (function() {
 
     self.getFrameId = function () {
         if (document.body.offsetWidth && document.body.offsetHeight && document.body.innerText
+            && runtime.conf.ignoredFrameHosts.indexOf(window.origin) === -1
             && !window.frameId) {
             window.frameId = generateQuickGuid();
         }
@@ -450,6 +465,10 @@ var Front = (function() {
     _actions["visualEnter"] = function(message) {
         clearPendingQuery();
         Visual.visualEnter(message.query);
+    };
+
+    _actions["emptySelection"] = function(message) {
+        document.getSelection().empty();
     };
 
     var _active = false;

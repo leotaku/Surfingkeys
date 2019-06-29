@@ -212,9 +212,14 @@ mapkey('I', '#1Go to edit box with vim editor', function() {
 });
 mapkey('O', '#1Open detected links from text', function() {
     Hints.create(runtime.conf.clickablePat, function(element) {
-        createElement(`<a href=${element[2]}>`).click();
+        window.location.assign(element[2]);
     }, {statusLine: "Open detected links from text"});
 });
+
+mapkey(';q', 'Toggle mouseSelectToQuery', function() {
+    runtime.command({ action: 'toggleMouseQuery', origin: window.location.origin });
+});
+
 mapkey(';s', 'Toggle PDF viewer from SurfingKeys', function() {
     var pdfUrl = window.location.href;
     if (pdfUrl.indexOf(chrome.extension.getURL("/pages/pdf_viewer.html")) === 0) {
@@ -362,7 +367,7 @@ mapkey('W', '#3New window with current tab',  function() {
 mapkey('m', '#10Add current URL to vim-like marks', Normal.addVIMark);
 mapkey("'", '#10Jump to vim-like mark', Normal.jumpVIMark);
 mapkey("<Ctrl-'>", '#10Jump to vim-like mark in new tab.', function(mark) {
-    Normal.jumpVIMark(mark, true);
+    Normal.jumpVIMark(mark);
 });
 mapkey('<<', '#3Move current tab to left', function() {
     RUNTIME('moveTab', {
@@ -434,13 +439,6 @@ mapkey('yh', "#7Copy current page's host", function() {
 mapkey('yl', "#7Copy current page's title", function() {
     Clipboard.write(document.title);
 });
-mapkey('yf', '#7Copy form data in JSON on current page', function() {
-    var fd = {};
-    document.querySelectorAll('form').forEach(function(form) {
-        fd[(form.method || "get") + "::" + form.action] = getFormData(form, "json");
-    });
-    Clipboard.write(JSON.stringify(fd, null, 4));
-});
 mapkey('yQ', '#7Copy all query history of OmniQuery.', function() {
     runtime.command({
         action: 'getSettings',
@@ -449,15 +447,25 @@ mapkey('yQ', '#7Copy all query history of OmniQuery.', function() {
         Clipboard.write(response.settings.OmniQueryHistory.join("\n"));
     });
 });
+function generateFormKey(form) {
+    return (form.method || "get") + "::" + new URL(form.action).pathname;
+}
+mapkey('yf', '#7Copy form data in JSON on current page', function() {
+    var fd = {};
+    document.querySelectorAll('form').forEach(function(form) {
+        fd[generateFormKey(form)] = getFormData(form, "json");
+    });
+    Clipboard.write(JSON.stringify(fd, null, 4));
+});
 mapkey(';pf', '#7Fill form with data from yf', function() {
     Hints.create('form', function(element, event) {
-        var formKey = (element.method || "get") + "::" + element.action;
+        var formKey = generateFormKey(element);
         Clipboard.read(function(response) {
             var forms = JSON.parse(response.data.trim());
             if (forms.hasOwnProperty(formKey)) {
                 var fd = forms[formKey];
-                element.querySelectorAll('input[type=text]').forEach(function(ip) {
-                    if (fd.hasOwnProperty(ip.name)) {
+                element.querySelectorAll('input').forEach(function(ip) {
+                    if (fd.hasOwnProperty(ip.name) && typeof(fd[ip.name]) !== "object") {
                         ip.value = fd[ip.name];
                     }
                 });
@@ -565,6 +573,9 @@ mapkey('gu', '#4Go up one path in the URL', function() {
 mapkey('g?', '#4Reload current page without query string(all parts after question mark)', function() {
     window.location.href = window.location.href.replace(/\?[^\?]*$/, '');
 });
+mapkey('g#', '#4Reload current page without hash fragment', function() {
+    window.location.href = window.location.href.replace(/\#[^\#]*$/, '');
+});
 mapkey('gU', '#4Go to root of current URL hierarchy', function() {
     window.location.href = window.location.origin;
 });
@@ -613,7 +624,7 @@ mapkey(';pp', '#7Paste html on current page', function() {
         setInnerHTML(document.body, response.data);
     });
 });
-mapkey(';q', '#14Insert jquery library on current page', function() {
+mapkey(';i', '#14Insert jquery library on current page', function() {
     Normal.insertJS("//ajax.aspnetcdn.com/ajax/jQuery/jquery-2.1.4.min.js");
 });
 mapkey(';t', 'Translate selected text with google', function() {

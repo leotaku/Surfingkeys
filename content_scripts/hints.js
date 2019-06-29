@@ -94,7 +94,7 @@ var Hints = (function() {
 
     function isCapital(key) {
         return key === key.toUpperCase() &&
-               key !== key.toLowerCase(); // in case key is a symbol or special character
+            key !== key.toLowerCase(); // in case key is a symbol or special character
     }
 
     function getZIndex(node) {
@@ -122,20 +122,6 @@ var Hints = (function() {
         } else if (matches.length === 0) {
             hide();
         }
-    }
-
-    function dispatchMouseEvent(element, events) {
-        events.forEach(function(eventName) {
-            var mouseButton = shiftKey ? 1 : 0;
-            var event = new MouseEvent(eventName, {
-                bubbles: true,
-                cancelable: true,
-                view: window,
-                button: mouseButton
-            });
-            element.dispatchEvent(event);
-        });
-        lastMouseTarget = element;
     }
 
     function refreshByTextFilter() {
@@ -225,16 +211,12 @@ var Hints = (function() {
         }
     }
 
-    var _origOverflow;
     self.onEnter = function() {
-        _origOverflow = document.body.style.overflowX;
-        document.body.style.overflowX = "hidden";
         document.addEventListener("surfingkeys:scrollStarted", onScrollStarted);
         document.addEventListener("surfingkeys:scrollDone", resetHints);
     };
 
     self.onExit = function() {
-        document.body.style.overflowX = _origOverflow;
         document.removeEventListener("surfingkeys:scrollStarted", onScrollStarted);
         document.removeEventListener("surfingkeys:scrollDone", resetHints);
     };
@@ -307,6 +289,7 @@ var Hints = (function() {
                 left = window.pageXOffset + window.innerWidth - 32;
             }
             var link = createElement(`<div>${hintLabels[i]}</div>`);
+            if (elm.dataset.hint_scrollable) { link.classList.add('hint-scrollable'); }
             link.style.top = Math.max(pos.top + window.pageYOffset - bof.top, 0) + "px";
             link.style.left = left + "px";
             link.style.zIndex = z + 9999;
@@ -436,8 +419,15 @@ var Hints = (function() {
 
         elements = positions.map(function(e) {
             var pos = getTextNodePos(e[0], e[1]);
-            if (e[0].data.trim().length === 0 || pos.top < 0 || pos.top > window.innerHeight
-                || pos.left < 0 || pos.left > window.innerWidth) {
+            var caretViewport = [0, 0, window.innerHeight, window.innerWidth];
+            if (runtime.conf.caretViewport && runtime.conf.caretViewport.length === 4) {
+                caretViewport = runtime.conf.caretViewport;
+            }
+            if (e[0].data.trim().length === 0
+                || pos.top < caretViewport[0]
+                || pos.left < caretViewport[1]
+                || pos.top > caretViewport[2]
+                || pos.left > caretViewport[3]) {
                 return null;
             } else {
                 var z = getZIndex(e[0].parentNode);
@@ -606,13 +596,14 @@ var Hints = (function() {
                 });
             } else {
                 self.mouseoutLastElement();
-                dispatchMouseEvent(element, behaviours.mouseEvents);
+                dispatchMouseEvent(element, behaviours.mouseEvents, shiftKey);
+                lastMouseTarget = element;
             }
         }
     };
     self.mouseoutLastElement = function() {
         if (lastMouseTarget) {
-            dispatchMouseEvent(lastMouseTarget, ['mouseout']);
+            dispatchMouseEvent(lastMouseTarget, ['mouseout'], false);
             lastMouseTarget = null;
         }
     };
